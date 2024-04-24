@@ -34,7 +34,10 @@ public class GameMenu {
             TransportGame game = new TransportGame(gameRoot, gameScene);
             game.startGame();
             stage.setScene(gameScene);
+            stage.setMaximized(true);
         });
+        
+        
 
         // Create an "Instructions" button with styling
         Button instructionsButton = new Button("Instructions");

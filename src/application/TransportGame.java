@@ -519,6 +519,9 @@ public class TransportGame {
         double scaleFactor2 = 0.27;
         mapView.setFitWidth(mapImage.getWidth() * scaleFactor2);
         mapView.setFitHeight(mapImage.getHeight() * scaleFactor2);
+        
+        scaleX = (mapView.getFitWidth() / mapImage.getWidth())*275;
+        scaleY = (mapView.getFitHeight() / mapImage.getHeight())*275;
 
         // Display station names and redraw circles for stations
         for (Point point : pointsMap.values()) {
