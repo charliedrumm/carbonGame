@@ -516,18 +516,18 @@ public class TransportGame {
         return gemLocations; // Return the list of gem locations
     }
     
-    
     private void displayGems() {
         mainGameArea.getChildren().clear(); // Clear existing content
         updatePlayerStatus();
-        // Create an AnchorPane to hold the map
-        AnchorPane anchorPane = new AnchorPane();
-        mainGameArea.getChildren().add(anchorPane); // Add anchorPane to the main game area
 
         // Load the map image
         Image mapImage = new Image(getClass().getResourceAsStream("map.png"));
         ImageView mapView = new ImageView(mapImage);
-        anchorPane.getChildren().add(mapView); // Add the map to the container
+        mainGameArea.getChildren().add(mapView); // Add the map to the container
+
+        mapView.fitHeightProperty().bind(root.heightProperty()); // Bind the height of the map to fit the root pane
+        mapView.setPreserveRatio(true); // Preserve the aspect ratio
+
 
         // Increase the size of the map
 //        double scaleFactor2 = .378;
@@ -549,77 +549,179 @@ public class TransportGame {
         playerAnimationHandler.updateScale(scaleX, scaleY);
         // Display station names and redraw circles for stations
         for (Point point : pointsMap.values()) {
-            // Display station name label with background, modified text, and shadow effect
             Label stationLabel = new Label(point.getName());
-            stationLabel.setLayoutX(point.getLongitude() * scaleX);
-            stationLabel.setLayoutY(point.getLatitude() * scaleY);
             stationLabel.setStyle("-fx-background-color: white; -fx-text-fill: black; -fx-padding: 1.5;");
-            stationLabel.setFont(new Font("Arial", 12)); // Set font size and family
-            stationLabel.setWrapText(true); // Allow text wrapping
-            stationLabel.setMaxWidth(80); // Set a max width for text wrapping and alignment
+            stationLabel.setFont(new Font("Arial", 12));
+            stationLabel.setWrapText(true);
+            stationLabel.setMaxWidth(80);
 
-            // Create and apply the DropShadow effect
             DropShadow dropShadow = new DropShadow();
             dropShadow.setRadius(3.0);
             dropShadow.setOffsetX(2.0);
             dropShadow.setOffsetY(2.0);
-            dropShadow.setColor(Color.color(0.2, 0.2, 0.2)); // Slightly darker shadow
+            dropShadow.setColor(Color.color(0.2, 0.2, 0.2));
+            stationLabel.setEffect(dropShadow);
 
-            stationLabel.setEffect(dropShadow); // Apply the shadow effect to the label
+            Circle stationCircle = new Circle(5, Color.BLUE);
 
-            anchorPane.getChildren().add(stationLabel);
-
-            // Redraw circle for station
-            Circle stationCircle = new Circle(point.getLongitude() * scaleX, point.getLatitude() * scaleY, 5, Color.BLUE);
-            anchorPane.getChildren().add(stationCircle);
+            stationLabels.add(stationLabel);
+            stationCircles.add(stationCircle);
+            mainGameArea.getChildren().addAll(stationLabel, stationCircle);
         }
 
-        // Place player sprite on the map
-        updatePlayerPosition(pointsMap.get(player.getLocation()).getLongitude(), pointsMap.get(player.getLocation()).getLatitude());
-        mainGameArea.getChildren().add(playerImageView);
-
-
-        // Display gem sprites instead of buttons
         for (Integer gemLocation : availableGems) {
             Image gemSprite = new Image(getClass().getResourceAsStream("gem.png"));
             ImageView gemImageView = new ImageView(gemSprite);
-            
-            ScaleTransition scaleTransition = new ScaleTransition(Duration.seconds(0.5), gemImageView);
-            scaleTransition.setFromX(1.0);
-            scaleTransition.setFromY(1.0);
-            scaleTransition.setToX(1.3); // Increase scale by 1.5 times
-            scaleTransition.setToY(1.3);
-            scaleTransition.setAutoReverse(true); // Make the transition reverse
-            scaleTransition.setCycleCount(ScaleTransition.INDEFINITE); // Repeat indefinitely
-         // Start the flashing animation
-            scaleTransition.play();
-            // Set the size of the gem sprite
-            double gemSize = 25; // Example size, adjust as necessary
-            gemImageView.setFitWidth(gemSize); // Set width to 30px, adjust as necessary
-            gemImageView.setFitHeight(gemSize); // Set height to 30px, adjust as necessary
+            gemImageView.setOnMouseEntered(e -> gemImageView.setCursor(Cursor.HAND));
+            gemImageView.setOnMouseExited(e -> gemImageView.setCursor(Cursor.DEFAULT));
+            gemImageView.setOnMouseClicked(e -> displayLinkOptions(player.getLocation(), new Route(), gemLocation));
 
-            // Calculate the position so the center of the gem is at the location point
-            double gemX = pointsMap.get(gemLocation).getLongitude() * scaleX + offsetX - gemSize / 2;
-            double gemY = pointsMap.get(gemLocation).getLatitude() * scaleY + offsetY - gemSize / 2;
+            gemImageViews.add(gemImageView);
+            mainGameArea.getChildren().add(gemImageView);
+        }
+
+        // Update positions and sizes based on the map's scale
+        mapView.layoutBoundsProperty().addListener((observable, oldValue, newValue) -> {
+            if (newValue != null) {
+                // Update scale factors based on the current size of the map view
+                scaleX = (newValue.getWidth() / mapImage.getWidth())*275;
+                scaleY = (newValue.getHeight() / mapImage.getHeight())*275;
+                System.out.print("x:  " + scaleX);
+                System.out.print("y:  " + scaleY);
+
+                updatePositionsAndSizes(stationLabels, stationCircles, gemImageViews);
+            }
+        });
+
+        // Initial positioning
+        updatePositionsAndSizes(stationLabels, stationCircles, gemImageViews);
+    }
+
+    private void updatePositionsAndSizes(ArrayList<Label> stationLabels, ArrayList<Circle> stationCircles, ArrayList<ImageView> gemImageViews) {
+        int index = 0;
+        for (Point point : pointsMap.values()) {
+            Label label = stationLabels.get(index);
+            Circle circle = stationCircles.get(index);
+
+            label.setLayoutX(point.getLongitude() * scaleX);
+            label.setLayoutY(point.getLatitude() * scaleY);
+            circle.setCenterX(point.getLongitude() * scaleX);
+            circle.setCenterY(point.getLatitude() * scaleY);
+
+            index++;
+        }
+
+        index = 0;
+        for (Integer gemLocation : availableGems) {
+            ImageView gemImageView = gemImageViews.get(index);
+            double gemSize = 25; // Scale the gem size proportionally
+            gemImageView.setFitWidth(gemSize);
+            gemImageView.setFitHeight(gemSize);
+
+            Point point = pointsMap.get(gemLocation);
+            double gemX = point.getLongitude() * scaleX - gemSize / 2;
+            double gemY = point.getLatitude() * scaleY - gemSize / 2;
             gemImageView.setX(gemX);
             gemImageView.setY(gemY);
 
-            gemImageView.setOnMouseEntered(e -> {
-                gemImageView.setCursor(Cursor.HAND); // Change cursor to hand when mouse enters
-            });
-
-            gemImageView.setOnMouseExited(e -> {
-                gemImageView.setCursor(Cursor.DEFAULT); // Change cursor back to default when mouse exits
-            });
-            gemImageView.setOnMouseClicked(e -> {
-                // Trigger the display of link options for the selected gem location
-                displayLinkOptions(player.getLocation(), new Route(), gemLocation);
-            });
-
-            anchorPane.getChildren().add(gemImageView);
+            index++;
         }
     }
+
     
+//    private void displayGems() {
+//        mainGameArea.getChildren().clear(); // Clear existing content
+//        updatePlayerStatus();
+//        // Create an AnchorPane to hold the map
+//        //AnchorPane anchorPane = new AnchorPane();
+//        //mainGameArea.getChildren().add(anchorPane); // Add anchorPane to the main game area
+//
+//        // Load the map image
+//        Image mapImage = new Image(getClass().getResourceAsStream("map.png"));
+//        ImageView mapView = new ImageView(mapImage);
+//        mainGameArea.getChildren().add(mapView); // Add the map to the container
+//
+//        // Increase the size of the map
+//        double scaleFactor2 = 0.27;
+////        mapView.setFitWidth(mapImage.getWidth() * scaleFactor2);
+////        mapView.setFitHeight(mapImage.getHeight() * scaleFactor2);
+//        mapView.fitHeightProperty().bind(root.heightProperty());
+//        
+//        // Preserve the aspect ratio if desired
+//        mapView.setPreserveRatio(true);
+//        // Display station names and redraw circles for stations
+//        for (Point point : pointsMap.values()) {
+//            // Display station name label with background, modified text, and shadow effect
+//            Label stationLabel = new Label(point.getName());
+//            stationLabel.setLayoutX(point.getLongitude() * scaleX);
+//            stationLabel.setLayoutY(point.getLatitude() * scaleY);
+//            stationLabel.setStyle("-fx-background-color: white; -fx-text-fill: black; -fx-padding: 1.5;");
+//            stationLabel.setFont(new Font("Arial", 12)); // Set font size and family
+//            stationLabel.setWrapText(true); // Allow text wrapping
+//            stationLabel.setMaxWidth(80); // Set a max width for text wrapping and alignment
+//
+//            // Create and apply the DropShadow effect
+//            DropShadow dropShadow = new DropShadow();
+//            dropShadow.setRadius(3.0);
+//            dropShadow.setOffsetX(2.0);
+//            dropShadow.setOffsetY(2.0);
+//            dropShadow.setColor(Color.color(0.2, 0.2, 0.2)); // Slightly darker shadow
+//
+//            stationLabel.setEffect(dropShadow); // Apply the shadow effect to the label
+//
+//            mainGameArea.getChildren().add(stationLabel);
+//
+//            // Redraw circle for station
+//            Circle stationCircle = new Circle(point.getLongitude() * scaleX, point.getLatitude() * scaleY, 5, Color.BLUE);
+//            mainGameArea.getChildren().add(stationCircle);
+//        }
+//
+//        // Place player sprite on the map
+//        updatePlayerPosition(pointsMap.get(player.getLocation()).getLongitude(), pointsMap.get(player.getLocation()).getLatitude());
+//        mainGameArea.getChildren().add(playerImageView);
+//
+//
+//        // Display gem sprites instead of buttons
+//        for (Integer gemLocation : availableGems) {
+//            Image gemSprite = new Image(getClass().getResourceAsStream("gem.png"));
+//            ImageView gemImageView = new ImageView(gemSprite);
+//            
+//            ScaleTransition scaleTransition = new ScaleTransition(Duration.seconds(0.5), gemImageView);
+//            scaleTransition.setFromX(1.0);
+//            scaleTransition.setFromY(1.0);
+//            scaleTransition.setToX(1.3); // Increase scale by 1.5 times
+//            scaleTransition.setToY(1.3);
+//            scaleTransition.setAutoReverse(true); // Make the transition reverse
+//            scaleTransition.setCycleCount(ScaleTransition.INDEFINITE); // Repeat indefinitely
+//         // Start the flashing animation
+//            scaleTransition.play();
+//            // Set the size of the gem sprite
+//            double gemSize = 25; // Example size, adjust as necessary
+//            gemImageView.setFitWidth(gemSize); // Set width to 30px, adjust as necessary
+//            gemImageView.setFitHeight(gemSize); // Set height to 30px, adjust as necessary
+//
+//            // Calculate the position so the center of the gem is at the location point
+//            double gemX = pointsMap.get(gemLocation).getLongitude() * scaleX + offsetX - gemSize / 2;
+//            double gemY = pointsMap.get(gemLocation).getLatitude() * scaleY + offsetY - gemSize / 2;
+//            gemImageView.setX(gemX);
+//            gemImageView.setY(gemY);
+//
+//            gemImageView.setOnMouseEntered(e -> {
+//                gemImageView.setCursor(Cursor.HAND); // Change cursor to hand when mouse enters
+//            });
+//
+//            gemImageView.setOnMouseExited(e -> {
+//                gemImageView.setCursor(Cursor.DEFAULT); // Change cursor back to default when mouse exits
+//            });
+//            gemImageView.setOnMouseClicked(e -> {
+//                // Trigger the display of link options for the selected gem location
+//                displayLinkOptions(player.getLocation(), new Route(), gemLocation);
+//            });
+//
+//            mainGameArea.getChildren().add(gemImageView);
+//        }
+//    }
+//    
     public void updatePlayerPosition(double newX, double newY) {
     	if (playerImageView.getImage() == null) {
             Image playerSprite = new Image(getClass().getResourceAsStream("player.png"));
