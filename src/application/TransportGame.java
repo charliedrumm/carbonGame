@@ -458,6 +458,42 @@ public class TransportGame {
     	
     }
 
+    public void generateCosts() {
+    	int pointDistance;
+    	for (Link link : mapGrap.getAllLinks()) {
+    		Point startPoint = pointsMap.get(link.getStartPoint());
+    		Point endPoint = pointsMap.get(link.getEndPoint());
+    		pointDistance = (int) (2*(Math.abs(startPoint.getLatitude() - endPoint.getLatitude()) + Math.abs(startPoint.getLongitude()-endPoint.getLongitude())));
+    		
+    		Transport transportType = link.getTransport();
+            
+            switch (transportType) {
+                case BUS:
+                	link.setTime(pointDistance);
+                	link.setCarbonFootprint(2 * pointDistance);
+                	break;
+                case CYCLE:
+                	link.setTime(3*pointDistance);
+                    break;
+                case AIRPLANE:
+                	link.setTime(pointDistance/2);
+                	link.setCarbonFootprint(4*pointDistance);
+                    break;
+                case BOAT:
+                	link.setTime(2* pointDistance);
+                	link.setCarbonFootprint(pointDistance);
+                    break;
+                case TRAIN:
+                	link.setTime(pointDistance/2);
+                	link.setCarbonFootprint(pointDistance/2);
+                    break;
+                default:
+                    // Default case
+                    break;
+            }
+    	}
+    	
+    }
 
     public void startGame() {
     	SoundEffectsPlayer.playSound("/soundEffects/letsgo.mp3");
@@ -471,7 +507,7 @@ public class TransportGame {
         mapGrap = new MapGraph();
         initializeMapGraph();
         initializePoints();
-        
+        generateCosts();
         // Clear previous game settings if any
         mainGameArea.getChildren().clear();
         playerAnimationHandler = new PlayerAnimationHandler(playerImageView, scaleX, scaleY, player, () -> {
@@ -1055,7 +1091,8 @@ public class TransportGame {
         //if(canContinue) {
         	//availableGems.remove(Integer.valueOf(gemLocation));
             //player.collectGem();
-
+        
+        
         if(player.canContinue()) {
 
         	compareRoutes(chosenRoute, gemLocation);
@@ -1086,9 +1123,9 @@ public class TransportGame {
         	
         }
         player.deductTime(-20);
-        player.deductCarbonFootprint(-50);
+        player.deductCarbonFootprint(-5);
         player.deductCost(-10);
-        //SoundEffectsPlayer.playSound("/soundEffects/gem.mp3");
+        
         updatePlayerStatus();
         gemCollectCarbon = player.getCarbonBudget();
         gemCollectTime = player.getTimeBudget();
@@ -1166,6 +1203,7 @@ public class TransportGame {
                 String.format("A faster route could save you %d minutes.",
                 		selectedRoute.getTotalTime() - fastestRoute.getTotalTime());
             
+            
             VBox carbonInfoBox = new VBox();
             VBox costInfoBox = new VBox();
             VBox timeInfoBox = new VBox();
@@ -1201,8 +1239,24 @@ public class TransportGame {
             setupCloseButton(closeButton, popupStage, wasFullScreen, primaryStage);
 
             // Budget Info Text
-           Text budgetText = new Text("You get a Bonus!");
-           budgetText.setFont(Font.font("Arial", FontWeight.BOLD, 18));
+
+            Text budgetText;
+            if (isLowestCarbon) {
+            	player.setCarbonBudget(200);
+            	player.setTimeBudget(100);
+            	player.setCostBudget(50);
+            	budgetText = new Text("As a reward you get full budgets");
+            	updatePlayerStatus();
+            }
+            
+            else {
+            	budgetText = new Text("You get a Bonus!\n" +
+	                                       "Cost \t\t\t+ 10\n" +
+	                                       "Time \t\t\t+ 20\n" +
+	                                       "Carbon budget \t+ 50\n");
+            }
+            budgetText.setFont(Font.font("Arial", 14));
+
 
 //
 //            // Styling for the budget information box
