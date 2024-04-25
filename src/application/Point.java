@@ -59,6 +59,5 @@ public class Point {
         return String.format("(%f, %f)", latitude, longitude);
     }
 
-    
     // Additional methods can be added as needed
 }
