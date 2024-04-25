@@ -45,10 +45,12 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.Cursor;
 import javafx.animation.ScaleTransition;
 import javafx.util.Duration;
+import javafx.stage.Screen;
 
 
 public class TransportGame {
     
+	private PlayerAnimationHandler playerAnimationHandler;
     private BorderPane  root; 
     private Player player;
     private MapGraph mapGrap;
@@ -61,11 +63,9 @@ public class TransportGame {
     private int  highScore;
     private Map<Integer, Point> pointsMap;
     private List<Integer> availableGems;
-    double scaleFactor = 0.75; // You can adjust this factor as needed
-    //double scaleX = 100.0 * scaleFactor;
-    //double scaleY = 100.0 * scaleFactor;
-    double scaleX = 65;
-    double scaleY = 65;
+    double scaleFactor = 1; // You can adjust this factor as needed
+    double scaleX = 100.0 * scaleFactor;
+    double scaleY = 100.0 * scaleFactor;
     double offsetX = 0.0 * scaleFactor; 
     double offsetY = 0.0 * scaleFactor;
     double playerOffsetX = -20.0; 
@@ -121,6 +121,7 @@ public class TransportGame {
         applyCSSStyles();
 
         highScore = highScoreManager.readHighScore();
+        
     }
 
     private void initializeBudgetsArea() {
@@ -162,6 +163,10 @@ public class TransportGame {
         budgetsHeading.getStyleClass().add("heading-label");
         routeHeading.getStyleClass().add("route-label");
         routeOptions.getStyleClass().add("route-options");
+        routeOptions.getStyleClass().add("route-options");       
+        carbonBudgetLabel.getStyleClass().add("label-budget");
+        timeBudgetLabel.getStyleClass().add("label-budget");
+        costBudgetLabel.getStyleClass().add("label-budget");
     }
 
 
@@ -505,13 +510,18 @@ public class TransportGame {
         generateCosts();
         // Clear previous game settings if any
         mainGameArea.getChildren().clear();
+        playerAnimationHandler = new PlayerAnimationHandler(playerImageView, scaleX, scaleY, player, () -> {
+            // Optional: Add any necessary completion behaviors
+        });
         
         startRound();
     }
 
 
     private void startRound() {
+    	
         if (currentRound <= 4) { // Check if the current level still has rounds to play
+        	player.setStartLocation(player.getLocation());
         	mainGameArea.getChildren().clear(); // Clear the GUI for the new round
             availableGems = placeGemsForRound(); // Place new gems for the round
             displayGems(); // Display the gems for the player to collect
@@ -524,6 +534,8 @@ public class TransportGame {
             startRound(); // Start the first round of the new level
         }
     }
+    
+    
     
     private List<Integer> placeGemsForRound() {
         List<Integer> gemLocations = new ArrayList<>(); // To hold the locations of the gems for this round
@@ -552,11 +564,26 @@ public class TransportGame {
         mapView.fitHeightProperty().bind(root.heightProperty()); // Bind the height of the map to fit the root pane
         mapView.setPreserveRatio(true); // Preserve the aspect ratio
 
-        // Create all elements initially without specific positions
-        ArrayList<Label> stationLabels = new ArrayList<>();
-        ArrayList<Circle> stationCircles = new ArrayList<>();
-        ArrayList<ImageView> gemImageViews = new ArrayList<>();
 
+        // Increase the size of the map
+//        double scaleFactor2 = .378;
+//        mapView.setFitWidth(mapImage.getWidth() * scaleFactor2);
+//        mapView.setFitHeight(mapImage.getHeight() * scaleFactor2);
+        
+        double screenHeight = Screen.getPrimary().getVisualBounds().getHeight()-40;
+
+	     // Calculate the scale factor based on the screen height and the height of the map image
+	     double scaleFactor3 = screenHeight / mapImage.getHeight();
+	
+	     // Set the scale factor to fit the height of the screen
+	     mapView.setFitWidth(mapImage.getWidth() * scaleFactor3);
+	     mapView.setFitHeight(screenHeight);
+        
+        
+        scaleX = (mapView.getFitWidth() / mapImage.getWidth())*275;
+        scaleY = (mapView.getFitHeight() / mapImage.getHeight())*275;
+        playerAnimationHandler.updateScale(scaleX, scaleY);
+        // Display station names and redraw circles for stations
         for (Point point : pointsMap.values()) {
             Label stationLabel = new Label(point.getName());
             stationLabel.setStyle("-fx-background-color: white; -fx-text-fill: black; -fx-padding: 1.5;");
@@ -799,7 +826,10 @@ public class TransportGame {
             routeOptions.getChildren().add(collectGemButton);
             
             collectGemButton.setOnAction(event -> {
-                collectGem(gemLocation, route);
+            	System.out.println("Route before collecting gem: " + route.getLinks().size());
+            	collectGem(gemLocation, route);
+            	System.out.println("Route after collecting gem: " + route.getLinks().size());
+    
             });
         }
     }
@@ -877,21 +907,23 @@ public class TransportGame {
 
 	     // Event handler for imageView clicks
 	     imageView.setOnMouseClicked(e -> {
-	         // Add the link to the current route instead of creating a new one
-	    	 
-	         currentRoute.addLink(link);
-	         player.updateBudgets(link.getTime(), link.getCost(), link.getCarbonFootprint());
-		     	updatePlayerStatus();	        		
-	         addRouteDetails(currentRoute); // Update route details with the current route
-	         displayLinkOptions(link.getEndPoint(), currentRoute, gemLocation); // Use the updated route for further actions
-	         showClearButton(currentRoute, gemLocation);
-	         
-            String soundFileName = TransportSoundMapper.getSoundFileNameForTransport(link.getTransport());
-            if (soundFileName != null) {
-                SoundEffectsPlayer.playSound(soundFileName);
-            }
-	         
-	     });
+	    	    currentRoute.addLink(link);
+	    	 // After adding a link to the route
+	    	    System.out.println("Added link from " + link.getStartPoint() + " to " + link.getEndPoint());
+	    	    System.out.println("Total links in route now: " + currentRoute.getLinks().size());
+
+	    	    player.updateBudgets(link.getTime(), link.getCost(), link.getCarbonFootprint());
+	    	    updatePlayerStatus();                
+	    	    addRouteDetails(currentRoute); // Update route details with the current route
+	    	    displayLinkOptions(link.getEndPoint(), currentRoute, gemLocation); // Use the updated route for further actions
+	    	    showClearButton(currentRoute, gemLocation);
+
+	    	    String soundFileName = TransportSoundMapper.getSoundFileNameForTransport(link.getTransport());
+	    	    if (soundFileName != null) {
+	    	        SoundEffectsPlayer.playSound(soundFileName);
+	    	    }
+	    	    playerAnimationHandler.animatePlayerMovement(startPoint, endPoint);
+	    	});
 
 	     
 	     String tooltipText = String.format("To: %s\nTransport: %s\nTime: %d\nCost: $%d\nCarbon: %d",
@@ -913,22 +945,26 @@ public class TransportGame {
         Button clearButton = new Button("Clear");
         clearButton.getStyleClass().add("button-hover");
         clearButton.setOnAction(event -> {
-            // Reset the route 
+            // Reset the route and player's budgets
+            playerAnimationHandler.stopCurrentAnimation();
             routeOptions.getChildren().clear();
             player.setCarbonBudget(gemCollectCarbon);
             player.setCostBudget(gemCollectCost);
             player.setTimeBudget(gemCollectTime);
             updatePlayerStatus();
-            Route newRoute = new Route(); 
-            displayLinkOptions(player.getLocation(), newRoute, gemLocation);
+
+            // Reset player's location to the start of the current round, not to the very beginning of the game
+            player.setLocation(player.getStartLocation()); // This should reflect the start location for the current round
+            Route newRoute = new Route();
+            displayLinkOptions(player.getStartLocation(), newRoute, gemLocation);  // Redisplay options from the start location
         });
 
         // Add the clearButton to routeOptions
-        
         if (!routeOptions.getChildren().contains(clearButton)) {
             routeOptions.getChildren().add(clearButton);
         }
     }
+
 
     
     private Line drawLine(Link link) {
@@ -941,6 +977,7 @@ public class TransportGame {
                              endPoint.getLatitude() * scaleY);
         line.setStrokeWidth(4);
         line.setOpacity(0.3);
+        
         
        
         switch (link.getTransport()) {
@@ -1202,6 +1239,7 @@ public class TransportGame {
             setupCloseButton(closeButton, popupStage, wasFullScreen, primaryStage);
 
             // Budget Info Text
+
             Text budgetText;
             if (isLowestCarbon) {
             	player.setCarbonBudget(200);
@@ -1219,15 +1257,46 @@ public class TransportGame {
             }
             budgetText.setFont(Font.font("Arial", 14));
 
-            // Styling for the budget information box
+
+//
+//            // Styling for the budget information box
             VBox budgetBox = new VBox(budgetText);
-            budgetBox.setPadding(new Insets(10));
+//            budgetBox.setPadding(new Insets(10));
+//            
+            
+            ImageView carbonIcon = new ImageView(carbonImage);
+            ImageView costIcon = new ImageView(costImage);
+            ImageView timeIcon = new ImageView(timeImage);
+            setupImageView(carbonIcon, costIcon, timeIcon);
+            
+            Text timeBonus = new Text("+ 20");
+            timeBonus.setFont(Font.font("Arial", 14));
+            Text costBonus = new Text("+ 10");
+            costBonus.setFont(Font.font("Arial", 14));
+            Text carbonBonus = new Text("+ 50");
+            carbonBonus.setFont(Font.font("Arial", 14));
+
+            // Create HBox for horizontal layout
+            HBox budgetHBox = new HBox(10); // 10 is the spacing between elements
+            budgetHBox.getChildren().addAll(timeIcon, timeBonus, costIcon, costBonus, carbonIcon, carbonBonus);
+            budgetBox.getChildren().add(budgetHBox);
+            budgetHBox.setAlignment(Pos.CENTER);
+            budgetBox.setAlignment(Pos.CENTER);
+
+
+            
             budgetBox.setStyle("-fx-background-color: #f7f7f7; -fx-border-color: #cccccc; " +
-                               "-fx-border-insets: 5; -fx-border-width: 2; " +
-                               "-fx-border-style: solid inside; -fx-border-radius: 5; " +
-                               "-fx-background-radius: 5; -fx-padding: 10;");
+                  "-fx-border-insets: 5; -fx-border-width: 2; " +
+                  "-fx-border-style: solid inside; -fx-border-radius: 5; " +
+                  "-fx-background-radius: 5; -fx-padding: 10;");
 
             // Create layout VBox with all elements
+            carbonBox.setAlignment(Pos.CENTER);
+            carbonInfoBox.setAlignment(Pos.CENTER);
+            costBox.setAlignment(Pos.CENTER);
+            costInfoBox.setAlignment(Pos.CENTER);
+            timeBox.setAlignment(Pos.CENTER);
+            timeInfoBox.setAlignment(Pos.CENTER);
             VBox layout = new VBox(10, titleBox, carbonBox, carbonInfoBox, costBox, costInfoBox, timeBox, timeInfoBox, budgetBox, closeButton);
             layout.setAlignment(Pos.CENTER);
             layout.setPadding(new Insets(15));
@@ -1289,42 +1358,47 @@ public class TransportGame {
 
     
     private void setupMoreInfoButton(Button moreInfoButton, Route route, VBox infoBox) {
-    	moreInfoButton.setOnAction(e -> {
+        
+        moreInfoButton.setOnAction(e -> {
             if (infoBox.getChildren().isEmpty()) {
-                displayRouteDescription(route, infoBox);
+            	displayRouteDescription(route, infoBox);
             } else {
                 infoBox.getChildren().clear();
             }
         });
         
-        // Button styling
-        moreInfoButton.setStyle("-fx-background-color: #78909C; " +
-                                "-fx-text-fill: white; " +
-                                "-fx-font-weight: bold; " +
-                                "-fx-border-color: transparent; " +
-                                "-fx-border-radius: 5; " +
-                                "-fx-background-radius: 5; " +
-                                "-fx-padding: 5 10; " +
-                                "-fx-font-size: 10pt;");
-        
-        // Set hover style
-        moreInfoButton.setOnMouseEntered(e -> moreInfoButton.setStyle("-fx-background-color: #546E7A; " +
-                                                                      "-fx-text-fill: white; " +
-                                                                      "-fx-font-weight: bold; " +
-                                                                      "-fx-border-color: transparent; " +
-                                                                      "-fx-border-radius: 5; " +
-                                                                      "-fx-background-radius: 5; " +
-                                                                      "-fx-padding: 5 10; " +
-                                                                      "-fx-font-size: 10pt;"));
-        moreInfoButton.setOnMouseExited(e -> moreInfoButton.setStyle("-fx-background-color: #78909C; " +
-                                                                     "-fx-text-fill: white; " +
-                                                                     "-fx-font-weight: bold; " +
-                                                                     "-fx-border-color: transparent; " +
-                                                                     "-fx-border-radius: 5; " +
-                                                                     "-fx-background-radius: 5; " +
-                                                                     "-fx-padding: 5 10; " +
-                                                                     "-fx-font-size: 10pt;"));
+        // Button styling remains the same
+        moreInfoButton.setStyle("-fx-background-color: #78909C; -fx-text-fill: white; -fx-font-weight: bold; " +
+                                "-fx-border-color: transparent; -fx-border-radius: 5; -fx-background-radius: 5; " +
+                                "-fx-padding: 5 10; -fx-font-size: 10pt;");
+
+        // Hover style
+        moreInfoButton.setOnMouseEntered(e -> {
+            moreInfoButton.setStyle("-fx-background-color: #546E7A; " +
+                                    "-fx-text-fill: white; " +
+                                    "-fx-font-weight: bold; " +
+                                    "-fx-border-color: transparent; " +
+                                    "-fx-border-radius: 5; " +
+                                    "-fx-background-radius: 5; " +
+                                    "-fx-padding: 5 10; " +
+                                    "-fx-font-size: 10pt;");
+            moreInfoButton.setCursor(Cursor.HAND);
+        });
+
+        moreInfoButton.setOnMouseExited(e -> {
+            moreInfoButton.setStyle("-fx-background-color: #78909C; " +
+                                    "-fx-text-fill: white; " +
+                                    "-fx-font-weight: bold; " +
+                                    "-fx-border-color: transparent; " +
+                                    "-fx-border-radius: 5; " +
+                                    "-fx-background-radius: 5; " +
+                                    "-fx-padding: 5 10; " +
+                                    "-fx-font-size: 10pt;");
+            moreInfoButton.setCursor(Cursor.DEFAULT);
+        });
+
     }
+
     
     private void displayRouteDescription(Route route, VBox vbox) {
         List<Link> consolidatedLinks = consolidateLinks(route.getLinks());
@@ -1358,11 +1432,11 @@ public class TransportGame {
             String description = String.format("%s to %s on %s",
                     pointsMap.get(link.getStartPoint()).getName(), pointsMap.get(link.getEndPoint()).getName(), link.getTransport().name());
             Text descriptionText = new Text(description);
-            descriptionText.setFont(Font.font("Arial", 14));
+            descriptionText.setFont(Font.font("Arial", 12));
 
             // Combine the image and text into an HBox and add it to the VBox
             HBox routeHBox = new HBox(10, transportImageView, descriptionText);
-            routeHBox.setAlignment(Pos.CENTER_LEFT);
+            routeHBox.setAlignment(Pos.CENTER);
             vbox.getChildren().add(routeHBox);
         }
     }
@@ -1468,8 +1542,8 @@ public class TransportGame {
         timeProgress.setProgress(progressTime);
         costProgress.setProgress(progressCost);
         carbonBudgetLabel.setText("Carbon Budget: " + player.getCarbonBudget());
-        timeBudgetLabel.setText("Time Budget: " + player.getTimeBudget());
-        costBudgetLabel.setText("Cost Budget: " + player.getCostBudget());
+        timeBudgetLabel.setText("Time Budget: " + player.getTimeBudget() + "  ");
+        costBudgetLabel.setText("Cost Budget: " + player.getCostBudget()+ "   ");
         scoreLabel.setText(String.format("High Score: %d%nCurrent Score: %d", highScore, player.getGemsCollected()));
 
     
